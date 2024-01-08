@@ -26,6 +26,7 @@ type api struct {
 	registryv1alpha1connect.UnimplementedRepositoryServiceHandler
 	registryv1alpha1connect.UnimplementedResolveServiceHandler
 	registryv1alpha1connect.UnimplementedDownloadServiceHandler
+	registryv1alpha1connect.UnimplementedRepositoryCommitServiceHandler
 	core   application
 	domain string
 }
@@ -61,6 +62,9 @@ func New(
 	mux.Handle(path, handler)
 
 	path, handler = registryv1alpha1connect.NewDownloadServiceHandler(a)
+	mux.Handle(path, handler)
+
+	path, handler = registryv1alpha1connect.NewRepositoryCommitServiceHandler(a)
 	mux.Handle(path, handler)
 
 	return srvExternal, mux

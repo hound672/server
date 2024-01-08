@@ -21,6 +21,43 @@ import (
 
 const hashLen = 64
 
+func (a *api) GetRepositoryCommitByReference(
+	ctx context.Context,
+	req *connect.Request[registryv1alpha1.GetRepositoryCommitByReferenceRequest],
+) (*connect.Response[registryv1alpha1.GetRepositoryCommitByReferenceResponse], error) {
+	repository, err := a.core.GetRepository(
+		ctx,
+		core.GetRequest{
+			Owner:      req.Msg.RepositoryOwner,
+			Repository: req.Msg.RepositoryName,
+			Branch:     req.Msg.Reference,
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("a.core.GetRepository: %w", err)
+	}
+
+	return &connect.Response[registryv1alpha1.GetRepositoryCommitByReferenceResponse]{
+		Msg: &registryv1alpha1.GetRepositoryCommitByReferenceResponse{
+			RepositoryCommit: &registryv1alpha1.RepositoryCommit{
+				Id:            path.Join(a.domain, repository.Owner, repository.Repository),
+				CreateTime:    timestamppb.New(repository.CreatedAt),
+				Digest:        "1111",
+				Name:          "dsfsadf",
+				Branch:        "asdfasdf",
+				Author:        "asdfasdf",
+				Tags:          nil,
+				DraftName:     "asdfas",
+				SpdxLicenseId: "asdfasdf1",
+				// ManifestDigest: "shake256:2e6d161aa1da1294ad86bd5b0ad73293c4035afc406f9e9bd7c518d6195ccc8c7cbeb384f9b558f60b6a7f6dbf70e364a5076044dc54b24bf4b5d69a6a10f420",
+				ManifestDigest:  "shake256:226d161aa1da1294ad86bd5b0ad73293c4035afc406f9e9bd7c518d6195ccc8c7cbeb384f9b558f60b6a7f6dbf70e364a5076044dc54b24bf4b5d69a6a10f420",
+				TagCount:        0,
+				GitCommitsCount: 0,
+			},
+		},
+	}, nil
+}
+
 func (a *api) GetModulePins(
 	ctx context.Context,
 	req *connect.Request[registryv1alpha1.GetModulePinsRequest],
@@ -53,6 +90,41 @@ func (a *api) GetModulePins(
 					Commit:     item.Commit,
 				}
 			}),
+		},
+	}, nil
+}
+
+func (a *api) GetRepositoryByFullName(
+	ctx context.Context,
+	req *connect.Request[registryv1alpha1.GetRepositoryByFullNameRequest],
+) (*connect.Response[registryv1alpha1.GetRepositoryByFullNameResponse], error) {
+	owner, repositoryName := filepath.Split(req.Msg.FullName)
+
+	repository, err := a.core.GetRepository(
+		ctx,
+		core.GetRequest{ //nolint:exhaustruct
+			Owner:      owner,
+			Repository: repositoryName,
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("a.core.GetRepository: %w", err)
+	}
+
+	return &connect.Response[registryv1alpha1.GetRepositoryByFullNameResponse]{
+		Msg: &registryv1alpha1.GetRepositoryByFullNameResponse{
+			Repository: &registryv1alpha1.Repository{
+				Id:            path.Join(a.domain, repository.Owner, repository.Repository),
+				CreateTime:    timestamppb.New(repository.CreatedAt),
+				UpdateTime:    timestamppb.New(repository.UpdatedAt),
+				Name:          repository.Repository,
+				Owner:         &registryv1alpha1.Repository_UserId{UserId: repository.Owner},
+				Visibility:    registryv1alpha1.Visibility_VISIBILITY_PUBLIC,
+				OwnerName:     repository.Owner,
+				Description:   "", // TODO //nolint:godox
+				Url:           path.Join(a.domain, repository.Owner, repository.Repository),
+				DefaultBranch: repository.Branch,
+			},
 		},
 	}, nil
 }
@@ -135,6 +207,7 @@ func (a *api) DownloadManifestAndBlobs(
 			if blob == nil {
 				return nil
 			}
+
 			manifestB.WriteString(digest)
 			blobs = append(blobs, blob)
 
@@ -149,6 +222,10 @@ func (a *api) DownloadManifestAndBlobs(
 	if err != nil {
 		return nil, fmt.Errorf("calculating manifest hash: %w", err)
 	}
+
+	cn := manifestB.String()
+	_ = cn
+	_ = hash
 
 	return &connect.Response[registryv1alpha1.DownloadManifestAndBlobsResponse]{
 		Msg: &registryv1alpha1.DownloadManifestAndBlobsResponse{
